@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
+const {isLogedIn} = require('../helpers/middleware');
 
 // Schema Models..
 require('../models/idea');
@@ -8,7 +9,9 @@ const Idea = mongoose.model('Ideas')
 
 // list all ideas ....
 router.get('/', (req, res) => {
-  Idea.find({})
+  Idea.find({
+    user:req.user.id
+  })
   .sort({date:'descending'})
   .then((ideas) => {
     res.render('ideas/show', {ideas:ideas});
@@ -17,23 +20,29 @@ router.get('/', (req, res) => {
 
 
 // Add Ideas Form render form...................
-router.get('/add', (req,res)=> {
+router.get('/add',isLogedIn, (req,res)=> {
   res.render('ideas/add');
 })
 
 // Edit Form .....................
-router.get('/edit/:id' , (req, res) => {
+router.get('/edit/:id' ,isLogedIn, (req, res) => {
   Idea.findOne({
     _id: req.params.id
   })
   .then((idea) => {
-    res.render('ideas/edit', {idea:idea});
+    if(idea.user !== req.user.id){
+      req.flash('error_msg','Not Authorized');
+      res.redirect('/ideas');
+    }else{
+      res.render('ideas/edit', {idea:idea});
+    }
+    
   })
  
 })
 
 //  Post req. to save the idea to the dataBase  from (/ideas/add form)
-router.post('/', (req,res) => {
+router.post('/',isLogedIn, (req,res) => {
   let errors = [];
   if(!req.body.title){
     errors.push({text:"Please put some title"});
@@ -52,7 +61,8 @@ router.post('/', (req,res) => {
   }else{
     const newUser = {
       title: req.body.title,
-      details: req.body.details
+      details: req.body.details,
+      user:req.user.id
     }
     // Create a model from existing model from the schema that we defined.
     new Idea(newUser)
@@ -70,7 +80,7 @@ router.post('/', (req,res) => {
 })
 
 // Edit form process ...
-router.put("/:id" , (req,res) => {
+router.put("/:id" ,isLogedIn, (req,res) => {
   Idea.findOne({
     _id:req.params.id
   }).then((idea) => {
@@ -85,7 +95,7 @@ router.put("/:id" , (req,res) => {
   });
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id',isLogedIn, (req, res) => {
   Idea.findByIdAndDelete({
     _id: req.params.id
   }).then(() => {
